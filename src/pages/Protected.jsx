@@ -6,23 +6,26 @@ function Protected() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!localStorage.getItem("faceAuth")) {
+    const faceAuth = localStorage.getItem("faceAuth");
+    
+    if (!faceAuth) {
       navigate("/login");
+      return; // Early return to avoid further execution
     }
 
-    const { account } = JSON.parse(localStorage.getItem("faceAuth"));
+    const { account } = JSON.parse(faceAuth);
     setAccount(account);
-  }, []);
+  }, [navigate]);
 
   if (!account) {
-    return null;
+    return null; // Prevent rendering until account is loaded
   }
 
   return (
     <div className="bg-white pt-40 md:pt-60">
       <div className="mx-auto max-w-7xl">
         <h2 className="text-center text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl mb-12">
-          You have successfully logged in!
+          You have been authenticated
         </h2>
         <div className="text-center mb-24">
           <img
@@ -30,21 +33,11 @@ function Protected() {
             src={
               account?.type === "CUSTOM"
                 ? account.picture
-                : // : import.meta.env.DEV
-                  // ? `/temp-accounts/${account.picture}`
-                  // : `/react-face-auth/temp-accounts/${account.picture}`
-                  `/temp-accounts/${account.picture}`
+                : `/temp-accounts/${account.picture}`
             }
             alt={account.fullName}
           />
-          <h1
-            className="block text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl bg-clip-text text-transparent bg-gradient-to-r from-red-500 to-red-800"
-            style={{
-              lineHeight: "1.5",
-            }}
-          >
-            {account?.fullName}
-          </h1>
+          {/* Removed user name display */}
           <div
             onClick={() => {
               localStorage.removeItem("faceAuth");

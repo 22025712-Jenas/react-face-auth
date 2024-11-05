@@ -2,17 +2,16 @@ import React from "react";
 
 function Footer() {
   return (
-    <h6 className="text-sm text-center w-full">
-      Created via 💙{" "}
-      <a
-        href="https://github.com/BilalGumus"
-        target="_blank"
-        alt="Bilal Gümüş's GitHub Account"
-        className="hover:underline"
-      >
-        Bilal Gümüş
-      </a>
-    </h6>
+    <footer className="bg-gray-800 text-white py-4">
+      <div className="container mx-auto text-center">
+        <h6 className="text-sm">&copy; {new Date().getFullYear()} Kester Bank. All rights reserved.</h6>
+        <div className="flex justify-center space-x-4 mt-2">
+          
+            
+          
+        </div>
+      </div>
+    </footer>
   );
 }
 
