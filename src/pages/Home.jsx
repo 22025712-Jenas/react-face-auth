@@ -6,7 +6,7 @@ function Home() {
     
     <div
     className="bg-white py-40 md:pt-60 md:pb-24"
-    style={{ backgroundImage: 'url(/temp-accounts/imagesss.jpg)', backgroundSize: 'cover', backgroundPosition: 'center' }}
+    style={{ backgroundImage: 'url(/images/background.jpg)', backgroundSize: 'cover', backgroundPosition: 'center' }}
   >
       <div className="mx-auto max-w-7xl">
         <div className="text-center mb-24">
@@ -22,7 +22,7 @@ function Home() {
 </p>
 
           <Link
-            to={"/user-select"}
+            to={"/Capture"}
             className="flex gap-2 mt-12 w-fit mx-auto cursor-pointer z-10 py-3 px-6 rounded-full bg-gradient-to-r from-indigo-300 to-indigo-500"
           >
             <svg

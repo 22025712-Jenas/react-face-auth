@@ -7,7 +7,7 @@ import {
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Layout from "./pages/Layout";
-import UserSelect from "./pages/UserSelect";
+import Capture from "./pages/Capture";
 import Protected from "./pages/Protected";
 
 const router = createBrowserRouter(
@@ -15,7 +15,7 @@ const router = createBrowserRouter(
     <>
       <Route path="/" element={<Layout />}>
         <Route path="/" element={<Home />} />
-        <Route path="user-select" element={<UserSelect />} />
+        <Route path="Capture" element={<Capture />} />
         <Route path="login" element={<Login />} />
         <Route path="protected" element={<Protected />} />
         <Route path="*" element={<Navigate to="/" />} />

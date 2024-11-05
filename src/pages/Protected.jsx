@@ -10,7 +10,7 @@ function Protected() {
     
     if (!faceAuth) {
       navigate("/login");
-      return; // Early return to avoid further execution
+      return; 
     }
 
     const { account } = JSON.parse(faceAuth);
@@ -18,11 +18,19 @@ function Protected() {
   }, [navigate]);
 
   if (!account) {
-    return null; // Prevent rendering until account is loaded
+    return null; 
   }
 
   return (
-    <div className="bg-white pt-40 md:pt-60">
+    <div
+      className="h-screen w-screen flex flex-col items-center justify-center"
+      style={{
+        backgroundImage: 'url(/images/background.jpg)',
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
       <div className="mx-auto max-w-7xl">
         <h2 className="text-center text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl mb-12">
           You have been authenticated
@@ -37,13 +45,13 @@ function Protected() {
             }
             alt={account.fullName}
           />
-          {/* Removed user name display */}
           <div
             onClick={() => {
               localStorage.removeItem("faceAuth");
               navigate("/");
             }}
             className="flex gap-2 mt-12 w-fit mx-auto cursor-pointer z-10 py-3 px-6 rounded-full bg-gradient-to-r from-red-400 to-red-600"
+            style={{ border: "none" }} 
           >
             <span className="text-white">Log Out</span>
             <svg

@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as faceapi from "face-api.js";
-// Removed the import statement for AuthIdle
 import FacePicture from "../assets/images/facepicture.avif"; 
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
@@ -11,7 +10,7 @@ function Login() {
   const [faceApiLoaded, setFaceApiLoaded] = useState(false);
   const [loginResult, setLoginResult] = useState("PENDING");
   const [imageError, setImageError] = useState(false);
-  const [counter, setCounter] = useState(5);
+  const [counter, setCounter] = useState(3);
   const [labeledFaceDescriptors, setLabeledFaceDescriptors] = useState({});
   const videoRef = useRef();
   const canvasRef = useRef();
@@ -72,7 +71,7 @@ function Login() {
 
       return () => clearInterval(counterInterval);
     }
-    setCounter(5);
+    setCounter(3);
   }, [loginResult, counter]);
 
   const getLocalUserVideo = async () => {
@@ -176,89 +175,98 @@ function Login() {
   }
 
   return (
-    <div className="h-full flex flex-col items-center justify-center gap-[24px] max-w-[720px] mx-auto">
-      {!localUserStream && !modelsLoaded && (
-        <h2 className="text-center text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">
-          <span className="block">
-            You're Attempting to Log In With Your Face.
-          </span>
-          <span className="block text-indigo-600 mt-2">Loading Models...</span>
-        </h2>
-      )}
-      {!localUserStream && modelsLoaded && (
-        <h2 className="text-center text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">
-          <span className="block text-indigo-600 mt-2">
-            Please Authenticate Your Face to Log In.
-          </span>
-        </h2>
-      )}
-      {localUserStream && loginResult === "SUCCESS" && (
-        <h2 className="text-center text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">
-          <span className="block text-indigo-600 mt-2">
-            Face successfully authenticated
-          </span>
-          <span className="block text-indigo-600 mt-2">
-            Please stay for {counter} more seconds...
-          </span>
-        </h2>
-      )}
-      {localUserStream && loginResult === "FAILED" && (
-        <h2 className="text-center text-3xl font-extrabold tracking-tight text-rose-700 sm:text-4xl">
-          <span className="block mt-[56px]">
-            Face not recognised
-          </span>
-        </h2>
-      )}
-      {localUserStream && !faceApiLoaded && loginResult === "PENDING" && (
-        <h2 className="text-center text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">
-          <span className="block mt-[56px]">Scanning Face...</span>
-        </h2>
-      )}
-      <div className="w-full">
-        <div className="relative flex flex-col items-center p-[10px]">
-          <video
-            muted
-            autoPlay
-            ref={videoRef}
-            height={videoHeight}
-            width={videoWidth}
-            onPlay={scanFace}
-            style={{
-              objectFit: "fill",
-              height: "360px",
-              borderRadius: "10px",
-              display: localUserStream ? "block" : "none",
-            }}
-          />
-          <canvas
-            ref={canvasRef}
-            style={{
-              position: "absolute",
-              display: localUserStream ? "block" : "none",
-            }}
-          />
-        </div>
-        {!localUserStream && (
-          <>
-            {modelsLoaded ? (
-              <>
-                {/* Using the FacePicture image only */}
-                <img
-                  alt="loading models"
-                  src={FacePicture}
-                  className="cursor-pointer my-8 mx-auto object-cover h-[272px]"
-                />
-                <button
-                  onClick={getLocalUserVideo}
-                  type="button"
-                  className="flex justify-center items-center w-full py-2.5 px-5 mr-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg border border-gray-200 inline-flex items-center"
-                >
-                  Scan my face
-                </button>
-              </>
-            ) : null} {/* Removed AuthIdle image */}
-          </>
+    <div
+      className="h-screen w-screen flex flex-col items-center justify-center"
+      style={{
+        backgroundImage: 'url(/images/background.jpg)',
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
+      <div className="flex flex-col items-center justify-center gap-[24px] max-w-[720px] mx-auto">
+        {!localUserStream && !modelsLoaded && (
+          <h2 className="text-center text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">
+            <span className="block">
+              You're Attempting to Log In With Your Face.
+            </span>
+            <span className="block text-white mt-2">Loading Models...</span>
+          </h2>
         )}
+        {!localUserStream && modelsLoaded && (
+          <h2 className="text-center text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">
+            <span className="block text-white mt-2">
+              Please Authenticate Your Face to Log In.
+            </span>
+          </h2>
+        )}
+        {localUserStream && loginResult === "SUCCESS" && (
+          <h2 className="text-center text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">
+            <span className="block text-white mt-2">
+              Face successfully authenticated
+            </span>
+            <span className="block text-white mt-2">
+              Please stay for {counter} more seconds...
+            </span>
+          </h2>
+        )}
+        {localUserStream && loginResult === "FAILED" && (
+          <h2 className="text-center text-3xl font-extrabold tracking-tight text-rose-700 sm:text-4xl">
+            <span className="block mt-[56px]">
+              Face not recognised
+            </span>
+          </h2>
+        )}
+        {localUserStream && !faceApiLoaded && loginResult === "PENDING" && (
+          <h2 className="text-center text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">
+            <span className="block mt-[56px]">Scanning Face...</span>
+          </h2>
+        )}
+        <div className="w-full">
+          <div className="relative flex flex-col items-center p-[10px]">
+            <video
+              muted
+              autoPlay
+              ref={videoRef}
+              height={videoHeight}
+              width={videoWidth}
+              onPlay={scanFace}
+              style={{
+                objectFit: "fill",
+                height: "360px",
+                borderRadius: "10px",
+                display: localUserStream ? "block" : "none",
+              }}
+            />
+            <canvas
+              ref={canvasRef}
+              style={{
+                position: "absolute",
+                display: localUserStream ? "block" : "none",
+              }}
+            />
+          </div>
+          {!localUserStream && (
+            <>
+              {modelsLoaded ? (
+                <>
+                  <img
+                    alt="loading models"
+                    src={FacePicture}
+                    className="cursor-pointer my-8 mx-auto object-cover h-[272px]"
+                  />
+                  <button
+                    onClick={getLocalUserVideo}
+                    type="button"
+                    className="flex justify-center items-center w-full py-2.5 px-5 mr-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg border border-gray-200 inline-flex items-center"
+                  >
+                    Scan my face
+                  </button>
+                </>
+              ) : null}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
