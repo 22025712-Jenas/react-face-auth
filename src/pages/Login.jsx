@@ -1,92 +1,70 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as faceapi from "face-api.js";
-import FacePicture from "../assets/images/facepicture.avif"; 
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { storage } from "../firebase";
+import { ref, getDownloadURL, listAll } from "firebase/storage";
+import FacePicture from "../assets/images/facepicture.avif";
 
 function Login() {
-  const [tempAccount, setTempAccount] = useState("");
   const [localUserStream, setLocalUserStream] = useState(null);
   const [modelsLoaded, setModelsLoaded] = useState(false);
-  const [faceApiLoaded, setFaceApiLoaded] = useState(false);
   const [loginResult, setLoginResult] = useState("PENDING");
-  const [imageError, setImageError] = useState(false);
-  const [counter, setCounter] = useState(3);
-  const [labeledFaceDescriptors, setLabeledFaceDescriptors] = useState({});
+  const [labeledFaceDescriptors, setLabeledFaceDescriptors] = useState(null);
+  const [videoError, setVideoError] = useState(false);
+  const [faceApiLoaded, setFaceApiLoaded] = useState(false);
+
   const videoRef = useRef();
   const canvasRef = useRef();
   const faceApiIntervalRef = useRef();
   const videoWidth = 640;
   const videoHeight = 360;
 
-  const location = useLocation();
   const navigate = useNavigate();
-
-  if (!location?.state) {
-    return <Navigate to="/" replace={true} />;
-  }
 
   const loadModels = async () => {
     const uri = "/models";
-
-    await faceapi.nets.ssdMobilenetv1.loadFromUri(uri);
-    await faceapi.nets.faceLandmark68Net.loadFromUri(uri);
-    await faceapi.nets.faceRecognitionNet.loadFromUri(uri);
+    try {
+      await faceapi.nets.ssdMobilenetv1.loadFromUri(uri);
+      await faceapi.nets.faceLandmark68Net.loadFromUri(uri);
+      await faceapi.nets.faceRecognitionNet.loadFromUri(uri);
+      console.log("Models loaded successfully!");
+    } catch (err) {
+      console.error("Error loading models:", err);
+    }
   };
 
   useEffect(() => {
-    setTempAccount(location?.state?.account);
+    loadModels()
+      .then(async () => {
+        const descriptors = await loadLabeledImages();
+        setLabeledFaceDescriptors(descriptors);
+      })
+      .then(() => setModelsLoaded(true))
+      .catch((error) => {
+        console.error("Error in initialization:", error);
+      });
   }, []);
-  
-  useEffect(() => {
-    if (tempAccount) {
-      loadModels()
-        .then(async () => {
-          const labeledFaceDescriptors = await loadLabeledImages();
-          setLabeledFaceDescriptors(labeledFaceDescriptors);
-        })
-        .then(() => setModelsLoaded(true));
-    }
-  }, [tempAccount]);
-
-  useEffect(() => {
-    if (loginResult === "SUCCESS") {
-      const counterInterval = setInterval(() => {
-        setCounter((counter) => counter - 1);
-      }, 1000);
-
-      if (counter === 0) {
-        videoRef.current.pause();
-        videoRef.current.srcObject = null;
-        localUserStream.getTracks().forEach((track) => {
-          track.stop();
-        });
-        clearInterval(counterInterval);
-        clearInterval(faceApiIntervalRef.current);
-        localStorage.setItem(
-          "faceAuth",
-          JSON.stringify({ status: true, account: tempAccount })
-        );
-        navigate("/protected", { replace: true });
-      }
-
-      return () => clearInterval(counterInterval);
-    }
-    setCounter(3);
-  }, [loginResult, counter]);
 
   const getLocalUserVideo = async () => {
-    navigator.mediaDevices
-      .getUserMedia({ audio: false, video: true })
-      .then((stream) => {
-        videoRef.current.srcObject = stream;
-        setLocalUserStream(stream);
-      })
-      .catch((err) => {
-        console.error("error:", err);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: true,
       });
+      videoRef.current.srcObject = stream;
+      setLocalUserStream(stream);
+    } catch (err) {
+      setVideoError(true);
+      console.error("Error accessing webcam:", err);
+    }
   };
 
   const scanFace = async () => {
+    if (!labeledFaceDescriptors) {
+      console.error("No labeled face descriptors available");
+      return;
+    }
+
     faceapi.matchDimensions(canvasRef.current, videoRef.current);
     const faceApiInterval = setInterval(async () => {
       const detections = await faceapi
@@ -99,7 +77,6 @@ function Login() {
       });
 
       const faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors);
-
       const results = resizedDetections.map((d) =>
         faceMatcher.findBestMatch(d.descriptor)
       );
@@ -114,9 +91,23 @@ function Login() {
       faceapi.draw.drawDetections(canvasRef.current, resizedDetections);
       faceapi.draw.drawFaceLandmarks(canvasRef.current, resizedDetections);
 
-      if (results.length > 0 && tempAccount.id === results[0].label) {
-        setLoginResult("SUCCESS");
+      if (results.length > 0) {
+        const match = results[0];
+        console.log(`Detected match: ${match.label} with distance ${match.distance}`);
+
+        if (match.distance < 0.6) {
+          console.log("Face authenticated successfully!");
+          setLoginResult("SUCCESS");
+          clearInterval(faceApiIntervalRef.current);
+
+          // Call handleSuccess to save account info and redirect
+          handleSuccess(match.label);
+        } else {
+          console.log("No match found with sufficient confidence.");
+          setLoginResult("FAILED");
+        }
       } else {
+        console.log("No faces matched.");
         setLoginResult("FAILED");
       }
 
@@ -127,51 +118,72 @@ function Login() {
     faceApiIntervalRef.current = faceApiInterval;
   };
 
+  const handleSuccess = (label) => {
+    // Assuming the label is the filename or ID of the matched user
+    const account = {
+      type: "CUSTOM",  // Or any other type based on your data
+      fullName: label,  // Replace with actual full name if available
+      picture: `${label}.png`,  // Assuming the image filename corresponds to the label
+    };
+
+    // Store the account information in localStorage
+    localStorage.setItem("faceAuth", JSON.stringify({ account }));
+
+    // Clear up resources before redirecting
+    videoRef.current.pause();
+    videoRef.current.srcObject = null;
+
+    if (localUserStream) {
+      localUserStream.getTracks().forEach((track) => track.stop());
+    }
+
+    clearInterval(faceApiIntervalRef.current);
+    // Redirect to protected page
+    navigate("/protected", { replace: true });
+  };
+
   async function loadLabeledImages() {
-    if (!tempAccount) {
+    const descriptors = [];
+    try {
+      const storageRef = ref(storage, "faces/");
+      const listResult = await listAll(storageRef);
+
+      console.log("Found images in Firebase:", listResult.items);
+
+      const imagePromises = listResult.items.map(async (itemRef) => {
+        const imgPath = await getDownloadURL(itemRef);
+        const img = await faceapi.fetchImage(imgPath);
+
+        const detection = await faceapi
+          .detectSingleFace(img)
+          .withFaceLandmarks()
+          .withFaceDescriptor();
+
+        if (detection) {
+          descriptors.push(
+            new faceapi.LabeledFaceDescriptors(itemRef.name, [
+              detection.descriptor,
+            ])
+          );
+          console.log(`Loaded face descriptor for ${itemRef.name}`);
+        } else {
+          console.error(`No face detected in image: ${itemRef.name}`);
+        }
+      });
+
+      await Promise.all(imagePromises);
+
+      if (descriptors.length > 0) {
+        console.log("Successfully loaded labeled face descriptors");
+      } else {
+        console.error("No valid labeled face descriptors found.");
+      }
+
+      return descriptors;
+    } catch (error) {
+      console.error("Error loading images from Firebase:", error);
       return null;
     }
-    const descriptions = [];
-
-    let img;
-
-    try {
-      const imgPath =
-        tempAccount?.type === "CUSTOM"
-          ? tempAccount.picture
-          : `/temp-accounts/${tempAccount.picture}`;
-
-      img = await faceapi.fetchImage(imgPath);
-    } catch {
-      setImageError(true);
-      return;
-    }
-
-    const detections = await faceapi
-      .detectSingleFace(img)
-      .withFaceLandmarks()
-      .withFaceDescriptor();
-
-    if (detections) {
-      descriptions.push(detections.descriptor);
-    }
-
-    return new faceapi.LabeledFaceDescriptors(tempAccount.id, descriptions);
-  }
-
-  if (imageError) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-[24px] max-w-[840px] mx-auto">
-        <h2 className="text-center text-3xl font-extrabold tracking-tight text-rose-700 sm:text-4xl">
-          <span className="block">
-            Upps! There is no profile picture associated with this account.
-          </span>
-        </h2>
-        <span className="block mt-4">
-          Please contact administration for registration or try again later.
-        </span>
-      </div>
-    );
   }
 
   return (
@@ -187,39 +199,23 @@ function Login() {
       <div className="flex flex-col items-center justify-center gap-[24px] max-w-[720px] mx-auto">
         {!localUserStream && !modelsLoaded && (
           <h2 className="text-center text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">
-            <span className="block">
-              You're Attempting to Log In With Your Face.
-            </span>
+            <span className="block">You're Attempting to Log In With Your Face.</span>
             <span className="block text-white mt-2">Loading Models...</span>
           </h2>
         )}
         {!localUserStream && modelsLoaded && (
           <h2 className="text-center text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">
-            <span className="block text-white mt-2">
-              Please Authenticate Your Face to Log In.
-            </span>
+            <span className="block text-white mt-2">Please Authenticate Your Face to Log In.</span>
           </h2>
         )}
         {localUserStream && loginResult === "SUCCESS" && (
           <h2 className="text-center text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">
-            <span className="block text-white mt-2">
-              Face successfully authenticated
-            </span>
-            <span className="block text-white mt-2">
-              Please stay for {counter} more seconds...
-            </span>
+            <span className="block text-white mt-2">Face successfully authenticated. Redirecting...</span>
           </h2>
         )}
         {localUserStream && loginResult === "FAILED" && (
           <h2 className="text-center text-3xl font-extrabold tracking-tight text-rose-700 sm:text-4xl">
-            <span className="block mt-[56px]">
-              Face not recognised
-            </span>
-          </h2>
-        )}
-        {localUserStream && !faceApiLoaded && loginResult === "PENDING" && (
-          <h2 className="text-center text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">
-            <span className="block mt-[56px]">Scanning Face...</span>
+            <span className="block mt-[56px]">Face not recognised</span>
           </h2>
         )}
         <div className="w-full">
@@ -258,12 +254,18 @@ function Login() {
                   <button
                     onClick={getLocalUserVideo}
                     type="button"
-                    className="flex justify-center items-center w-full py-2.5 px-5 mr-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg border border-gray-200 inline-flex items-center"
+                    className="flex justify-center items-center w-full py-2.5 px-5 mr-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg border border-gray-200"
                   >
-                    Scan my face
+                    Start Face Authentication
                   </button>
                 </>
-              ) : null}
+              ) : (
+                <img
+                  alt="loading models"
+                  src={FacePicture}
+                  className="cursor-pointer my-8 mx-auto object-cover h-[272px]"
+                />
+              )}
             </>
           )}
         </div>

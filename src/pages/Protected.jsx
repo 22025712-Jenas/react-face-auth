@@ -1,24 +1,46 @@
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { storage } from "../firebase"; // Import your firebase config
+import { ref, getDownloadURL } from "firebase/storage";
 
 function Protected() {
   const [account, setAccount] = useState(null);
+  const [imageUrl, setImageUrl] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     const faceAuth = localStorage.getItem("faceAuth");
-    
+  
     if (!faceAuth) {
       navigate("/login");
-      return; 
+      return;
     }
-
+  
     const { account } = JSON.parse(faceAuth);
     setAccount(account);
+  
+    // If the account has a picture, fetch it from Firebase
+    if (account?.picture) {
+      // Ensure no duplicate file extension
+      const imagePath = `/faces/${account.picture.replace(/\.(jpg|jpeg|png|gif)$/, "")}`; 
+  
+      console.log("Fetching image from path:", imagePath); // Log the path
+  
+      const imageRef = ref(storage, imagePath);
+  
+      getDownloadURL(imageRef)
+        .then((url) => {
+          setImageUrl(url); // Set the image URL to the state
+        })
+        .catch((error) => {
+          console.error("Error fetching image from Firebase:", error);
+        });
+    }
   }, [navigate]);
+  
 
   if (!account) {
-    return null; 
+    return null;
   }
 
   return (
@@ -36,22 +58,25 @@ function Protected() {
           You have been authenticated
         </h2>
         <div className="text-center mb-24">
-          <img
-            className="mx-auto mb-8 object-cover h-48 w-48 rounded-full"
-            src={
-              account?.type === "CUSTOM"
-                ? account.picture
-                : `/temp-accounts/${account.picture}`
-            }
-            alt={account.fullName}
-          />
+          {/* Display the image only when the imageUrl is available */}
+          {imageUrl ? (
+            <img
+              className="mx-auto mb-8 object-cover h-48 w-48 rounded-full"
+              src={imageUrl} // Use the image URL fetched from Firebase
+              alt={account.fullName}
+            />
+          ) : (
+            <div className="mx-auto mb-8 object-cover h-48 w-48 rounded-full bg-gray-300">
+              {/* A fallback placeholder if imageUrl is not available */}
+            </div>
+          )}
           <div
             onClick={() => {
               localStorage.removeItem("faceAuth");
               navigate("/");
             }}
             className="flex gap-2 mt-12 w-fit mx-auto cursor-pointer z-10 py-3 px-6 rounded-full bg-gradient-to-r from-red-400 to-red-600"
-            style={{ border: "none" }} 
+            style={{ border: "none" }}
           >
             <span className="text-white">Log Out</span>
             <svg

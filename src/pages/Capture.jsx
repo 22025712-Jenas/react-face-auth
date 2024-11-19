@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import * as faceapi from "face-api.js";
+import { ref, uploadString, getDownloadURL } from "firebase/storage";
+import { storage } from "../firebase"; 
 
 function Capture() {
   const [errorMessage, setErrorMessage] = useState(null);
@@ -10,10 +12,9 @@ function Capture() {
   const canvasRef = useRef(null);
   const navigate = useNavigate();
 
-  
   useEffect(() => {
     const loadModels = async () => {
-      const uri = "/models"; 
+      const uri = "/models";
       await faceapi.nets.tinyFaceDetector.loadFromUri(uri);
       await faceapi.nets.ssdMobilenetv1.loadFromUri(uri);
       startCamera();
@@ -34,7 +35,6 @@ function Capture() {
     }
   };
 
-
   const detectFace = () => {
     const video = videoRef.current;
 
@@ -45,12 +45,10 @@ function Capture() {
           new faceapi.TinyFaceDetectorOptions()
         );
 
-        
         setFaceDetected(detections.length > 0);
       }
-    }, 500); 
+    }, 500);
 
-  
     return () => clearInterval(faceDetectionInterval);
   };
 
@@ -61,25 +59,35 @@ function Capture() {
     canvas.height = video.videoHeight;
     const context = canvas.getContext("2d");
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
     const base64 = canvas.toDataURL("image/png");
 
-    const user = {
-      id: "custom",
-      fullName: "Custom User",
-      type: "CUSTOM",
-      picture: base64,
-    };
+    try {
+      // Firebase storage reference
+      const storageRef = ref(storage, `faces/${Date.now()}.png`);
+      const snapshot = await uploadString(storageRef, base64, "data_url");
 
-  
-    
-   
-    const stream = video.srcObject;
-    const tracks = stream.getTracks();
-    tracks.forEach((track) => track.stop());
-    setIsCameraOpen(false);
+      // Get the image URL from Firebase
+      const downloadURL = await getDownloadURL(snapshot.ref);
 
-   
-    navigate("/login", { state: { account: user } });
+      const user = {
+        id: "custom",
+        fullName: "Custom User",
+        type: "CUSTOM",
+        picture: downloadURL,
+      };
+
+      // Stop camera
+      const stream = video.srcObject;
+      const tracks = stream.getTracks();
+      tracks.forEach((track) => track.stop());
+      setIsCameraOpen(false);
+
+      // Navigate to login with user data
+      navigate("/login", { state: { account: user } });
+    } catch (error) {
+      console.error("Error uploading image: ", error);
+    }
   };
 
   return (
@@ -92,17 +100,18 @@ function Capture() {
         backgroundRepeat: "no-repeat",
       }}
     >
-     <div className="flex flex-col items-center justify-center gap-6 w-full max-w-[90%] sm:max-w-[720px] mx-auto p-4 sm:p-8 rounded-lg">
-  <h1 className="text-xl sm:text-2xl font-semibold text-white text-center" style={{ textShadow: "2px 2px 8px rgba(0, 0, 0, 0.6)" }}>
-    Capture photo for authentication
-         
+      <div className="flex flex-col items-center justify-center gap-6 w-full max-w-[90%] sm:max-w-[720px] mx-auto p-4 sm:p-8 rounded-lg">
+        <h1
+          className="text-xl sm:text-2xl font-semibold text-white text-center"
+          style={{ textShadow: "2px 2px 8px rgba(0, 0, 0, 0.6)" }}
+        >
+          Capture photo for authentication
         </h1>
         <div className="w-full text-right">
-    <div className="mx-auto w-full max-w-xs sm:max-w-md">
+          <div className="mx-auto w-full max-w-xs sm:max-w-md">
             {isCameraOpen && (
               <div className="mt-3 flex flex-col items-center">
                 <video ref={videoRef} className="w-full max-w-xs" />
-                {}
                 <button
                   onClick={capturePhoto}
                   disabled={!faceDetected}
@@ -110,7 +119,7 @@ function Capture() {
                     faceDetected
                       ? "bg-green-600 hover:bg-green-700"
                       : "bg-red-600 cursor-not-allowed"
-                  } mt-6`} 
+                  } mt-6`}
                 >
                   {faceDetected ? "Capture Photo" : "No Face Detected"}
                 </button>
